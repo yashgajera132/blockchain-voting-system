@@ -14,12 +14,16 @@ const generateToken = (id) => {
 // @route   POST /api/auth/register
 // @access  Public
 exports.register = async (req, res) => {
+  console.log('Registration request received:', req.body);
+  
   try {
     const { name, email, password, role } = req.body;
 
     // Check if user already exists
+    console.log('Checking if user already exists with email:', email);
     const userExists = await User.findOne({ email });
     if (userExists) {
+      console.log('User already exists with email:', email);
       return res.status(400).json({
         success: false,
         message: 'User already exists'
@@ -27,21 +31,43 @@ exports.register = async (req, res) => {
     }
 
     // Create user
-    const user = await User.create({
-      name,
-      email,
-      password,
-      role: role || 'voter'
-    });
+    console.log('Creating new user with role:', role || 'voter');
+    let user;
+    try {
+      user = await User.create({
+        name,
+        email,
+        password,
+        role: role || 'voter'
+      });
+      console.log('User created successfully with ID:', user._id);
+    } catch (userError) {
+      console.error('Error creating user:', userError);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to create user account',
+        error: userError.message
+      });
+    }
 
     // Create verification entry
-    await Verification.create({
-      user: user._id
-    });
+    try {
+      console.log('Creating verification entry for user:', user._id);
+      await Verification.create({
+        user: user._id
+      });
+      console.log('Verification entry created');
+    } catch (verificationError) {
+      console.error('Error creating verification entry:', verificationError);
+      // Don't fail if verification entry creation fails
+      // Just log the error and continue
+    }
 
     // Generate token
+    console.log('Generating token for user');
     const token = generateToken(user._id);
 
+    console.log('Registration successful for:', email);
     res.status(201).json({
       success: true,
       token,
@@ -55,9 +81,11 @@ exports.register = async (req, res) => {
       }
     });
   } catch (error) {
+    console.error('Registration error:', error);
     res.status(500).json({
       success: false,
-      message: error.message
+      message: error.message || 'Registration failed',
+      error: error.stack
     });
   }
 };
@@ -202,6 +230,47 @@ exports.uploadVerificationDocuments = async (req, res) => {
     res.status(500).json({
       success: false,
       message: error.message
+    });
+  }
+};
+
+// @desc    Check if a user exists by email
+// @route   POST /api/auth/check-user
+// @access  Public
+exports.checkUserExists = async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email is required'
+      });
+    }
+    
+    // Find user by email
+    const user = await User.findOne({ email });
+    
+    if (user) {
+      // User exists, return existence and role
+      return res.status(200).json({
+        success: true,
+        exists: true,
+        role: user.role
+      });
+    } else {
+      // User doesn't exist
+      return res.status(200).json({
+        success: true,
+        exists: false
+      });
+    }
+  } catch (error) {
+    console.error('Error checking user existence:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to check user existence',
+      error: error.message
     });
   }
 }; 

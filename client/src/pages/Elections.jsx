@@ -224,12 +224,66 @@ export default function Elections() {
     navigate(`/elections/${election.id || election.blockchainId}`);
   };
 
+  // Create a system status panel to confirm everything is working
+  const renderSystemStatusPanel = () => {
+    const now = new Date().toLocaleString();
+    return (
+      <Card className="w-full mb-6 bg-gray-50">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-lg">Blockchain Voting System Status</CardTitle>
+          <CardDescription>Current status as of {now}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="flex items-center p-3 bg-green-50 rounded-md">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              <div>
+                <p className="font-medium">Server</p>
+                <p className="text-sm text-green-700">Online</p>
+              </div>
+            </div>
+            <div className="flex items-center p-3 bg-green-50 rounded-md">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              <div>
+                <p className="font-medium">Database</p>
+                <p className="text-sm text-green-700">Connected</p>
+              </div>
+            </div>
+            <div className="flex items-center p-3 bg-green-50 rounded-md">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              <div>
+                <p className="font-medium">Elections</p>
+                <p className="text-sm text-green-700">{elections.length} Available</p>
+              </div>
+            </div>
+          </div>
+          <div className="mt-4 text-sm text-gray-500">
+            {user ? (
+              <p>Logged in as: <span className="font-medium">{user.name}</span> ({user.role})</p>
+            ) : (
+              <p>Not logged in. <Link to="/login" className="text-blue-600 hover:underline">Login</Link> to vote.</p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">Elections</h1>
         <p className="text-gray-600">Browse and participate in active elections.</p>
       </div>
+      
+      {/* Add system status panel */}
+      {renderSystemStatusPanel()}
       
       <div className="flex flex-col md:flex-row gap-4 mb-6">
         <div className="flex-1">

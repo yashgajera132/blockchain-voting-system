@@ -103,6 +103,7 @@ export function AuthProvider({ children }) {
         // Preserve the stored role if it's admin and the response role is voter
         // This ensures admin role persists after refresh even if server returns voter
         const responseData = response.data;
+        console.log('Response data:', responseData);
         if (storedUser && storedUser.role === 'admin' && responseData.role === 'voter') {
           console.log('Preserving admin role from local storage');
           responseData.role = 'admin';
@@ -155,10 +156,12 @@ export function AuthProvider({ children }) {
   // Register new user
   async function register({ name, email, password, role = 'voter' }) {
     setLoading(true);
+    console.log('Attempting registration with:', { name, email, role });
     
     try {
       // Always try the real server first
       try {
+        console.log('Attempting server registration at:', `${API_URL}/auth/register`);
         const response = await axios.post(`${API_URL}/auth/register`, {
           name,
           email,
@@ -166,6 +169,7 @@ export function AuthProvider({ children }) {
           role,
         });
         
+        console.log('Registration successful, server response:', response.status);
         const { token, user } = response.data;
         localStorage.setItem('token', token);
         localStorage.setItem('user', JSON.stringify(user));
@@ -176,10 +180,16 @@ export function AuthProvider({ children }) {
         return response.data;
       } catch (serverError) {
         console.error('Server error during registration:', serverError);
+        console.error('Error details:', serverError.message);
+        
+        if (serverError.response) {
+          console.error('Server response data:', serverError.response.data);
+          console.error('Server response status:', serverError.response.status);
+        }
         
         // If server is unavailable, fall back to mock mode
         if (!isServerAvailable || serverError.code === 'ECONNREFUSED' || serverError.code === 'ERR_NETWORK') {
-          console.log('Using mock registration');
+          console.log('Using mock registration due to server unavailability');
           const mockToken = 'mock_token_' + Math.random().toString(36).substring(2);
           const mockUser = {
             id: 'mock_' + Math.random().toString(36).substring(2),
@@ -192,6 +202,11 @@ export function AuthProvider({ children }) {
           
           localStorage.setItem('token', mockToken);
           localStorage.setItem('user', JSON.stringify(mockUser));
+          localStorage.setItem('mockUsers', JSON.stringify([
+            ...(JSON.parse(localStorage.getItem('mockUsers') || '[]')),
+            mockUser
+          ]));
+          
           setUser(mockUser);
           toast.success('Registration successful (Mock Mode)');
           setLoading(false);
@@ -207,7 +222,7 @@ export function AuthProvider({ children }) {
       if (error.response?.status === 409) {
         toast.error('Email already in use');
       } else {
-        toast.error(error.response?.data?.message || 'Registration failed');
+        toast.error(error.response?.data?.message || 'Registration failed: ' + (error.message || 'Unknown error'));
       }
       
       setLoading(false);
@@ -218,69 +233,156 @@ export function AuthProvider({ children }) {
   // Login user
   async function login({ email, password, isAdmin }) {
     setLoading(true);
+    console.log('Attempting login with:', { email, isAdmin });
+    
     try {
       if (!isServerAvailable) {
-        // Mock login logic
-        // Determine role - prioritize the isAdmin flag, then use email or password checks as fallback
-        const shouldBeAdmin = isAdmin || email.includes('admin') || password.includes('admin');
+        console.log('Server unavailable, using mock login');
+        // For mock mode, first check if the user exists in localStorage
+        const existingUsers = localStorage.getItem('mockUsers') ? 
+          JSON.parse(localStorage.getItem('mockUsers')) : [];
         
-        const mockUser = {
-          id: 'mock_' + Math.random().toString(36).substring(2),
-          name: 'Mock User',
-          email: email,
-          role: shouldBeAdmin ? 'admin' : 'voter', // Prioritize admin role based on checkbox
-          verified: true,
-          createdAt: new Date().toISOString()
-        };
+        console.log('Existing mock users:', existingUsers.length);
         
-        const mockToken = 'mock_token_' + Math.random().toString(36).substring(2);
+        // Find the user by email
+        const mockUserFound = existingUsers.find(u => u.email === email);
         
-        localStorage.setItem('token', mockToken);
-        localStorage.setItem('user', JSON.stringify(mockUser));
+        if (mockUserFound) {
+          console.log('Mock user found:', mockUserFound.email);
+          // Check for role mismatch
+          const userIsAdmin = mockUserFound.role === 'admin';
+          
+          // Role mismatch check
+          if ((userIsAdmin && !isAdmin) || (!userIsAdmin && isAdmin)) {
+            setLoading(false);
+            throw new Error('Login failed. Role mismatch.');
+          }
+          
+          const mockUser = {
+            ...mockUserFound,
+            // Ensure the role is correct based on the login attempt
+            role: isAdmin ? 'admin' : 'voter'
+          };
+          
+          const mockToken = 'mock_token_' + Math.random().toString(36).substring(2);
+          
+          localStorage.setItem('token', mockToken);
+          localStorage.setItem('user', JSON.stringify(mockUser));
+          
+          setUser(mockUser);
+          toast.success(`Welcome back, ${mockUser.name}! (Mock Mode)`);
+          
+          setLoading(false);
+          return { token: mockToken, user: mockUser };
+        } else {
+          console.log('No mock user found, creating new mock user');
+          // Create a new mock user for demo purposes if not found
+          const mockUser = {
+            id: 'mock_' + Math.random().toString(36).substring(2),
+            name: 'Mock User',
+            email: email,
+            role: isAdmin ? 'admin' : 'voter',
+            verified: true,
+            createdAt: new Date().toISOString()
+          };
+          
+          // Save the user to mock storage
+          const updatedMockUsers = [...existingUsers, mockUser];
+          localStorage.setItem('mockUsers', JSON.stringify(updatedMockUsers));
+          console.log('Updated mock users with new user');
+          
+          const mockToken = 'mock_token_' + Math.random().toString(36).substring(2);
+          
+          localStorage.setItem('token', mockToken);
+          localStorage.setItem('user', JSON.stringify(mockUser));
+          
+          setUser(mockUser);
+          toast.success(`Welcome back, ${mockUser.name}! (Mock Mode)`);
+          
+          setLoading(false);
+          return { token: mockToken, user: mockUser };
+        }
+      }
+
+      try {
+        // Real server login - first attempt to check if user exists
+        console.log('Checking if user exists in database');
+        let userExists = false;
+        let userRole = null;
         
-        setUser(mockUser);
-        toast.success(`Welcome back, ${mockUser.name}! (Mock Mode)`);
+        try {
+          const checkResponse = await axios.post(`${API_URL}/auth/check-user`, {
+            email
+          });
+          
+          if (checkResponse.data && checkResponse.data.exists) {
+            userExists = true;
+            userRole = checkResponse.data.role;
+            console.log('User exists in database with role:', userRole);
+          }
+        } catch (checkError) {
+          console.log('Error checking user existence:', checkError.message);
+          // Continue with login attempt even if check fails
+        }
+        
+        // If the user exists, check for role mismatch
+        if (userExists) {
+          const userIsAdmin = userRole === 'admin';
+          
+          // Role mismatch check
+          if ((userIsAdmin && !isAdmin) || (!userIsAdmin && isAdmin)) {
+            setLoading(false);
+            throw new Error('Login failed. Role mismatch.');
+          }
+        }
+        
+        console.log('Attempting login with server');
+        const response = await axios.post(`${API_URL}/auth/login`, {
+          email,
+          password,
+          isAdmin
+        });
+
+        console.log('Login successful, server response:', response.status);
+        const { token, user } = response.data;
+        
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify(user));
+        setUser(user);
+        
+        toast.success(`Welcome back, ${user.name}!`);
+        setIsServerAvailable(true);
         
         setLoading(false);
-        return { token: mockToken, user: mockUser };
+        return response.data;
+      } catch (serverError) {
+        console.error('Server error during login:', serverError);
+        console.error('Error details:', serverError.message);
+        
+        if (serverError.response) {
+          console.error('Server response data:', serverError.response.data);
+          console.error('Server response status:', serverError.response.status);
+        }
+        
+        // If server is unavailable, try mock mode
+        if (serverError.code === 'ECONNREFUSED' || serverError.code === 'ERR_NETWORK') {
+          console.log('Server unavailable, switching to mock mode');
+          setIsServerAvailable(false);
+          return login({ email, password, isAdmin }); // Retry with mock mode
+        }
+        
+        // Otherwise, rethrow the error
+        throw serverError;
       }
-
-      // Add isAdmin parameter to the login request
-      const response = await axios.post(`${API_URL}/auth/login`, {
-        email,
-        password,
-        isAdmin, // Send this to the server
-      });
-
-      const { token, user } = response.data;
-      
-      // If the admin checkbox was checked but the user role isn't admin,
-      // override it to ensure admin role is applied
-      if (isAdmin && user.role !== 'admin') {
-        user.role = 'admin';
-      }
-      
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(user));
-      setUser(user);
-      
-      toast.success(`Welcome back, ${user.name}!`);
-      setIsServerAvailable(true);
-      
-      setLoading(false);
-      return response.data;
     } catch (error) {
       console.error('Login error:', error);
       
-      if (error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK') {
-        setIsServerAvailable(false);
-        return login({ email, password, isAdmin }); // Retry with mock mode
-      }
-      
-      if (error.response?.status === 401) {
+      if (error.message === 'Login failed. Role mismatch.') {
+        toast.error('Login failed. Role mismatch. Please use the correct login option for your account type.');
+      } else if (error.response?.status === 401) {
         toast.error('Invalid email or password');
       } else {
-        toast.error(error.response?.data?.message || 'Login failed');
+        toast.error(error.response?.data?.message || error.message || 'Login failed');
       }
       
       setLoading(false);
@@ -291,7 +393,12 @@ export function AuthProvider({ children }) {
   // Logout user
   function logout() {
     localStorage.removeItem('token');
+    localStorage.removeItem('user');
     setUser(null);
+    // Disconnect wallet if connected
+    if (window.ethereum) {
+      disconnect();
+    }
     toast.success('Logged out successfully');
   }
 
@@ -376,24 +483,32 @@ export function AuthProvider({ children }) {
   }
 
   // Get verification status
-  async function getVerificationStatus() {
+  const getVerificationStatus = async () => {
     try {
-      if (!isServerAvailable) {
-        // Mock verification status if server is unavailable
-        const storedUser = JSON.parse(localStorage.getItem('user'));
-        return { status: storedUser?.verificationStatus || 'not_submitted' };
+      if (!user) {
+        return null;
       }
-
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_URL}/verification/status`, {
-        headers: { Authorization: `Bearer ${token}` },
+      
+      const response = await fetch('/api/voters/verification/status', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
       });
-      return response.data;
+      
+      if (response.ok) {
+        const data = await response.json();
+        return data.data || { status: 'not_submitted' };
+      } else if (response.status === 404) {
+        // Verification not submitted yet
+        return { status: 'not_submitted' };
+      } else {
+        throw new Error('Failed to fetch verification status');
+      }
     } catch (error) {
-      console.error('Error getting verification status:', error);
-      throw error;
+      console.error('Verification status error:', error);
+      return { status: 'not_submitted' };
     }
-  }
+  };
 
   // Add a function to change user roles
   async function changeUserRole(userId, newRole) {

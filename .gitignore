@@ -9,31 +9,44 @@ node_modules/
 # Production
 /build
 /dist
+/client/build
+/client/dist
 
-# Miscellaneous
-.DS_Store
+# Environment variables
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+.env.production
 
 # Logs
+logs
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+server/logs
 
-# IDE
-.idea/
-.vscode/
+# IDE specific files
+.idea
+.vscode
 *.swp
 *.swo
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
 
 # Runtime data
 .pids
 *.pid
 *.seed
-*.log
 
 # Package directories
 jspm_packages/
@@ -49,7 +62,6 @@ bower_components/
 *.tgz
 
 # dotenv environment variable files
-.env
 .env.*
 
 # blockchain specific

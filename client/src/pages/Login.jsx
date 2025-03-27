@@ -24,83 +24,84 @@ export default function Login() {
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const { login, loading: authLoading, user } = useAuth();
+  const { login, logout, loading: authLoading, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [isAdminLogin, setIsAdminLogin] = useState(false);
 
-  // Get the redirect path from various sources
-  const fromState = location.state?.from;
-  const fromQuery = location.search?.replace('?returnTo=', '');
-  const adminRedirect = localStorage.getItem('adminRedirect');
-  
-  // Prioritize admin redirect if it exists and user is trying to login as admin
-  const effectiveRedirect = (isAdminLogin && adminRedirect) || fromState || fromQuery || '/';
-  
-  console.log("Login page - redirect paths:", { 
-    fromState, 
-    fromQuery, 
-    adminRedirect, 
-    effectiveRedirect,
-    isAdminLogin
-  });
-
-  // If user is already logged in, redirect them
+  // If user is already logged in, handle role check
   useEffect(() => {
     if (user) {
-      console.log("User already logged in:", user);
-      const isAdmin = user.role === 'admin' || user.isAdmin === true;
+      const isUserAdmin = user.role === 'admin' || user.isAdmin === true;
       
-      if (isAdmin) {
-        // If there's a stored admin redirect, use it
-        const storedAdminRedirect = localStorage.getItem('adminRedirect');
-        if (storedAdminRedirect) {
-          console.log("Redirecting to stored admin path:", storedAdminRedirect);
-          localStorage.removeItem('adminRedirect'); // Clear it after use
-          navigate(storedAdminRedirect);
-        } else {
-          navigate('/admin');
-        }
+      // Check if user is trying to switch roles without logging out
+      if ((isUserAdmin && !isAdminLogin) || (!isUserAdmin && isAdminLogin)) {
+        setError('You must logout before switching roles.');
+        return;
+      }
+      
+      // If roles match, redirect to appropriate dashboard
+      if (isUserAdmin) {
+        navigate('/admin-dashboard');
       } else {
-        // For regular users, redirect to the intended destination
-        console.log("Redirecting regular user to:", effectiveRedirect);
-        navigate(effectiveRedirect);
+        navigate('/voter-dashboard');
       }
     }
-  }, [user, navigate, effectiveRedirect]);
+  }, [user, navigate, isAdminLogin]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
     setError('');
 
+    // Client-side validation
+    if (!email || !password) {
+      setError('Email and password are required');
+      setIsSubmitting(false);
+      return;
+    }
+
+    // Show loading toast
+    toast.loading('Logging in...', { id: 'login' });
+
     try {
       console.log("Attempting login with:", { email, isAdmin: isAdminLogin });
       
-      await login({
+      const loginResult = await login({
         email: email,
         password: password,
         isAdmin: isAdminLogin
       });
       
-      // Get updated user from localStorage
-      const userData = JSON.parse(localStorage.getItem('user'));
+      toast.success('Login successful!', { id: 'login' });
       
-      // Explicitly ensure admin role is set if admin login was selected
-      if (isAdminLogin && userData) {
-        console.log("Setting admin role in localStorage");
-        userData.role = 'admin';
-        userData.isAdmin = true;
-        localStorage.setItem('user', JSON.stringify(userData));
+      // Get updated user from login result or localStorage
+      const userData = loginResult?.user || JSON.parse(localStorage.getItem('user'));
+      
+      if (userData) {
+        const isUserAdmin = userData.role === 'admin' || userData.isAdmin === true;
+        
+        console.log('Login successful, redirecting to dashboard. User role:', userData.role);
+        
+        // Redirect based on user role
+        if (isUserAdmin && isAdminLogin) {
+          navigate('/admin-dashboard');
+        } else {
+          navigate('/voter-dashboard');
+        }
       }
-      
-      // Login was successful, toast will be shown by the login function
-      // Redirect will be handled by the useEffect when user state updates
       
     } catch (err) {
       console.error('Login error:', err);
-      setError(err.response?.data?.message || 'Failed to log in');
-      toast.error(err.response?.data?.message || 'Login failed. Please check your credentials.');
+      toast.error(err?.response?.data?.message || err.message || 'Login failed', { id: 'login' });
+      
+      if (err.message === 'Login failed. Role mismatch.') {
+        setError('Role mismatch. Please use the correct login option for your account type.');
+      } else if (err.response?.status === 401) {
+        setError('Invalid email or password. Please try again.');
+      } else {
+        setError(err?.response?.data?.message || err.message || 'Failed to log in. Please try again.');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -108,6 +109,13 @@ export default function Login() {
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
+  };
+
+  // Handle role switch when user is already logged in
+  const handleRoleSwitch = () => {
+    logout();
+    setIsAdminLogin(!isAdminLogin);
+    toast.success('You have been logged out. You can now login with a different role.');
   };
 
   // Skip rendering this component if authentication is still being checked
@@ -122,8 +130,31 @@ export default function Login() {
     );
   }
 
-  // If user is already logged in, don't render the login form
-  if (user) {
+  // If user is already logged in and trying to switch roles, show switch message
+  if (user && ((user.role === 'admin' && !isAdminLogin) || (user.role !== 'admin' && isAdminLogin))) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="text-center">
+          <div className="mb-4">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-yellow-500 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-semibold mb-2">Role switch detected</h2>
+          <p className="text-gray-600 mb-4">You must logout before switching between user and admin roles.</p>
+          <Button 
+            onClick={handleRoleSwitch} 
+            className="mx-auto"
+          >
+            Logout and Switch Role
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // If user is already logged in with matching role, redirect
+  if (user && ((user.role === 'admin' && isAdminLogin) || (user.role !== 'admin' && !isAdminLogin))) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
         <div className="text-center">
@@ -133,9 +164,9 @@ export default function Login() {
             </svg>
           </div>
           <h2 className="text-xl font-semibold mb-2">You're already logged in</h2>
-          <p className="text-gray-600 mb-4">Redirecting you to {isAdminLogin ? 'admin dashboard' : 'your destination'}...</p>
+          <p className="text-gray-600 mb-4">Redirecting you to {user.role === 'admin' ? 'admin dashboard' : 'voter dashboard'}...</p>
           <Button 
-            onClick={() => navigate(isAdminLogin ? '/admin' : effectiveRedirect)} 
+            onClick={() => navigate(user.role === 'admin' ? '/admin-dashboard' : '/voter-dashboard')} 
             className="mx-auto"
           >
             Continue
@@ -156,7 +187,7 @@ export default function Login() {
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
-            {error && <FormMessage>{error}</FormMessage>}
+            {error && <FormMessage className="text-red-500">{error}</FormMessage>}
             <FormField>
               <FormLabel>Email</FormLabel>
               <Input

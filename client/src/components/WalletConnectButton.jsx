@@ -53,11 +53,22 @@ export default function WalletConnectButton({
   const handleConnect = async () => {
     setIsConnecting(true);
     try {
+      if (!window.ethereum) {
+        throw new Error('No Ethereum wallet detected. Please install MetaMask or another wallet extension.');
+      }
       await connect();
     } catch (error) {
       console.error('Error connecting wallet:', error);
     } finally {
       setIsConnecting(false);
+    }
+  };
+
+  const handleDisconnect = async () => {
+    try {
+      await disconnect();
+    } catch (error) {
+      console.error('Error disconnecting wallet:', error);
     }
   };
 
@@ -67,7 +78,7 @@ export default function WalletConnectButton({
         <div className="flex items-center">
           <button
             className={`${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${className} flex items-center`}
-            onClick={disconnect}
+            onClick={handleDisconnect}
           >
             <span className="inline-block h-2 w-2 rounded-full bg-green-400 mr-2"></span>
             <span>{formatAddress(account)}</span>

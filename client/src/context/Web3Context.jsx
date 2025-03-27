@@ -10,6 +10,20 @@ const ELECTION_VOTERS_ADDRESS = import.meta.env.VITE_ELECTION_VOTERS_ADDRESS;
 
 const Web3Context = createContext();
 
+// Helper to create provider based on ethers version
+const createProvider = (ethereum) => {
+  // Check if we're using ethers v6 (with BrowserProvider) or v5 (with providers.Web3Provider)
+  if (ethers.BrowserProvider) {
+    // ethers v6
+    return new ethers.BrowserProvider(ethereum);
+  } else if (ethers.providers) {
+    // ethers v5
+    return new ethers.providers.Web3Provider(ethereum);
+  } else {
+    throw new Error('Unsupported ethers.js version');
+  }
+};
+
 export function Web3Provider({ children }) {
   const [provider, setProvider] = useState(null);
   const [signer, setSigner] = useState(null);
@@ -29,8 +43,8 @@ export function Web3Provider({ children }) {
       try {
         // Check if window.ethereum is available (MetaMask or other wallet)
         if (window.ethereum) {
-          // Create ethers provider - using the correct import for ethers version
-          const ethersProvider = new ethers.BrowserProvider(window.ethereum);
+          // Create ethers provider with version check
+          const ethersProvider = createProvider(window.ethereum);
           setProvider(ethersProvider);
 
           // Set up event listeners for account and chain changes
@@ -38,14 +52,33 @@ export function Web3Provider({ children }) {
           window.ethereum.on('chainChanged', handleChainChanged);
           
           // Check if already connected
-          const accounts = await ethersProvider.listAccounts();
+          let accounts;
+          try {
+            // For ethers v6
+            accounts = await ethersProvider.listAccounts();
+          } catch (e) {
+            // For ethers v5
+            accounts = await ethersProvider.listAccounts();
+          }
+
           if (accounts.length > 0) {
             const ethersSigner = await ethersProvider.getSigner();
-            const signerAddress = await ethersSigner.getAddress();
-            const network = await ethersProvider.getNetwork();
+            // Handle address retrieval for both v5 and v6
+            const signerAddress = typeof ethersSigner.getAddress === 'function' 
+              ? await ethersSigner.getAddress() 
+              : ethersSigner.address;
+              
+            // Handle network retrieval for both v5 and v6
+            let networkChainId;
+            try {
+              const network = await ethersProvider.getNetwork();
+              networkChainId = network.chainId || network.chainId.toString();
+            } catch (e) {
+              networkChainId = 1; // Default to mainnet if we can't get chain ID
+            }
             
             setAccount(signerAddress);
-            setChainId(Number(network.chainId));
+            setChainId(Number(networkChainId));
             setSigner(ethersSigner);
             setIsActive(true);
             
@@ -133,11 +166,12 @@ export function Web3Provider({ children }) {
     window.location.reload();
   };
 
-  // Connect wallet
+  // Connect wallet - update with version compatibility
   async function connect(silent = false) {
-    if (connecting) return;
+    if (connecting) return false;
     
     setConnecting(true);
+    let toastId;
     try {
       if (!window.ethereum) {
         if (!silent) {
@@ -148,67 +182,70 @@ export function Web3Provider({ children }) {
         return false;
       }
       
-      // Request account access
-      if (!silent) toast.loading('Connecting to wallet...');
-      const ethersProvider = new ethers.BrowserProvider(window.ethereum);
-      
-      await ethersProvider.send('eth_requestAccounts', []);
-      const accounts = await ethersProvider.listAccounts();
-      
-      if (accounts.length === 0) {
-        if (!silent) {
-          toast.dismiss();
-          toast.error('No accounts found. Please create an account in your wallet.');
-        }
-        setConnecting(false);
-        return false;
+      // Show loading toast
+      if (!silent) {
+        toastId = toast.loading('Connecting to wallet...');
       }
       
-      const ethersSigner = await ethersProvider.getSigner();
-      const signerAddress = await ethersSigner.getAddress();
-      const network = await ethersProvider.getNetwork();
+      // Request account access
+      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
       
+      if (!accounts || accounts.length === 0) {
+        throw new Error('No accounts found');
+      }
+
+      const ethersProvider = createProvider(window.ethereum);
       setProvider(ethersProvider);
-      setSigner(ethersSigner);
-      setAccount(signerAddress);
-      setChainId(Number(network.chainId));
-      setIsActive(true);
       
+      const ethersSigner = await ethersProvider.getSigner();
+      setSigner(ethersSigner);
+      
+      // Get the connected account address
+      const address = await ethersSigner.getAddress();
+      setAccount(address);
+      
+      // Get network information
+      const network = await ethersProvider.getNetwork();
+      setChainId(Number(network.chainId));
+      
+      // Initialize contract
       try {
-        // Initialize contract
         const votingContract = new ethers.Contract(
           VOTING_CONTRACT_ADDRESS,
           VotingABI.abi,
           ethersSigner
         );
         
-        // Test if contract is accessible
+        // Test contract connection
         await votingContract.getElectionCount();
         setContract(votingContract);
+        setIsActive(true);
         
-        if (!silent) {
-          toast.dismiss();
+        if (!silent && toastId) {
+          toast.dismiss(toastId);
           toast.success('Connected to wallet successfully!');
         }
-        setConnecting(false);
+        
         return true;
       } catch (contractError) {
-        console.error("Contract not accessible:", contractError);
+        console.error("Contract connection error:", contractError);
         if (!silent) {
-          toast.dismiss();
-          toast.error('Failed to connect to voting contract. Please check your network and contract address.');
+          toast.error("Could not connect to voting contract. Please check your network connection.");
         }
-        setConnecting(false);
+        setContract(null);
         return false;
       }
-    } catch (err) {
-      console.error('Error connecting to wallet:', err);
+    } catch (error) {
+      console.error('Connection error:', error);
       if (!silent) {
-        toast.dismiss();
-        toast.error(`Failed to connect: ${err.message}`);
+        toast.error(error.message || 'Failed to connect wallet');
       }
-      setConnecting(false);
       return false;
+    } finally {
+      setConnecting(false);
+      if (!silent && toastId) {
+        toast.dismiss(toastId);
+      }
     }
   }
 
@@ -220,11 +257,14 @@ export function Web3Provider({ children }) {
       setContract(null);
       setIsActive(false);
       
-      toast.success('Disconnected from wallet');
+      // Clear any stored wallet state
+      localStorage.removeItem('walletConnected');
+      
+      toast.success('Wallet disconnected');
       return true;
-    } catch (err) {
-      console.error('Error disconnecting:', err);
-      toast.error(`Failed to disconnect: ${err.message}`);
+    } catch (error) {
+      console.error('Error disconnecting wallet:', error);
+      toast.error('Failed to disconnect wallet');
       return false;
     }
   }

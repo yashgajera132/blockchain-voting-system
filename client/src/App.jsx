@@ -1,6 +1,7 @@
 import React from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
+import { useWeb3 } from './context/Web3Context';
 import Layout from './components/Layout';
 import Home from './pages/Home';
 import Elections from './pages/Elections';
@@ -17,17 +18,19 @@ import CreateElection from './pages/CreateElection';
 import VerifyVoter from './pages/VerifyVoter';
 import HowItWorks from './pages/HowItWorks';
 import NotFound from './pages/NotFound';
+import BlockchainConnectionRequired from './components/BlockchainConnectionRequired';
 import { toast } from 'react-hot-toast';
 
 // Protected Route component that checks authentication
-const ProtectedRoute = ({ children, adminOnly = false }) => {
+const ProtectedRoute = ({ children, adminOnly = false, voterOnly = false }) => {
   const { user, loading } = useAuth();
   const location = useLocation();
   
   // Debug log for protected routes
   console.log(`ProtectedRoute check for ${location.pathname}:`, { 
     user, 
-    adminOnly, 
+    adminOnly,
+    voterOnly,
     isAdmin: user?.role === 'admin' || user?.isAdmin,
     loading 
   });
@@ -57,26 +60,72 @@ const ProtectedRoute = ({ children, adminOnly = false }) => {
   // For admin routes, verify admin status
   if (adminOnly && !isAdmin) {
     console.log("Admin route access denied - user is not admin", { userRole: authUser.role, isAdmin: authUser.isAdmin });
-    // Store the intended location for potential redirect after proper login
-    localStorage.setItem('adminRedirect', location.pathname);
     toast.error("Admin access required");
-    return <Navigate to="/" replace />;
+    return <Navigate to="/voter-dashboard" replace />;
+  }
+  
+  // For voter-only routes, verify user is not admin
+  if (voterOnly && isAdmin) {
+    console.log("Voter route access denied - user is admin", { userRole: authUser.role, isAdmin: authUser.isAdmin });
+    toast.error("This page is for voters only");
+    return <Navigate to="/admin-dashboard" replace />;
   }
   
   // Authentication passed, render the children
   return children;
 };
 
+// Blockchain Protected Route for Admin
+const BlockchainProtectedRoute = ({ children }) => {
+  const { isActive, account } = useWeb3();
+  
+  // Check if wallet is connected
+  if (!isActive || !account) {
+    return <BlockchainConnectionRequired redirectPath="/" />;
+  }
+  
+  // Wallet is connected, render the children
+  return children;
+};
+
 export default function App() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin' || user?.isAdmin === true;
+
   return (
     <Layout>
       <Routes>
+        {/* Public Routes */}
         <Route path="/" element={<Home />} />
         <Route path="/how-it-works" element={<HowItWorks />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         
-        {/* Protected Routes */}
+        {/* Home Page Redirect */}
+        <Route path="/" element={
+          user ? (
+            isAdmin ? <Navigate to="/admin-dashboard" replace /> : <Navigate to="/voter-dashboard" replace />
+          ) : (
+            <Home />
+          )
+        } />
+        
+        {/* Role-specific dashboards */}
+        <Route path="/voter-dashboard" element={
+          <ProtectedRoute voterOnly={true}>
+            <Elections />
+          </ProtectedRoute>
+        } />
+        
+        <Route path="/admin-dashboard" element={
+          <ProtectedRoute adminOnly={true}>
+            <BlockchainProtectedRoute>
+              <AdminDashboard />
+            </BlockchainProtectedRoute>
+          </ProtectedRoute>
+        } />
+        
+        {/* Protected Voter Routes */}
         <Route path="/elections" element={
           <ProtectedRoute>
             <Elections />
@@ -104,37 +153,49 @@ export default function App() {
         {/* Admin-only Routes */}
         <Route path="/admin" element={
           <ProtectedRoute adminOnly={true}>
-            <AdminDashboard />
+            <BlockchainProtectedRoute>
+              <AdminDashboard />
+            </BlockchainProtectedRoute>
           </ProtectedRoute>
         } />
         
         <Route path="/admin/elections" element={
           <ProtectedRoute adminOnly={true}>
-            <ElectionManagement />
+            <BlockchainProtectedRoute>
+              <ElectionManagement />
+            </BlockchainProtectedRoute>
           </ProtectedRoute>
         } />
         
         <Route path="/admin/candidates" element={
           <ProtectedRoute adminOnly={true}>
-            <CandidateManagement />
+            <BlockchainProtectedRoute>
+              <CandidateManagement />
+            </BlockchainProtectedRoute>
           </ProtectedRoute>
         } />
         
         <Route path="/admin/verification" element={
           <ProtectedRoute adminOnly={true}>
-            <VerificationManagement />
+            <BlockchainProtectedRoute>
+              <VerificationManagement />
+            </BlockchainProtectedRoute>
           </ProtectedRoute>
         } />
         
         <Route path="/admin/users" element={
           <ProtectedRoute adminOnly={true}>
-            <UserManagement />
+            <BlockchainProtectedRoute>
+              <UserManagement />
+            </BlockchainProtectedRoute>
           </ProtectedRoute>
         } />
         
         <Route path="/admin/create-election" element={
           <ProtectedRoute adminOnly={true}>
-            <CreateElection />
+            <BlockchainProtectedRoute>
+              <CreateElection />
+            </BlockchainProtectedRoute>
           </ProtectedRoute>
         } />
         

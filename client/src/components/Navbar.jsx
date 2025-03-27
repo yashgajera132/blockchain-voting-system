@@ -11,6 +11,9 @@ export default function Navbar() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+
+  console.log('Navbar - user:', user);
+
   
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
@@ -60,6 +63,8 @@ export default function Navbar() {
       console.error('Connection error:', error);
     }
   };
+
+  console.log('Navbar - user:', user);
   
   // Handle wallet disconnection
   const handleDisconnect = async () => {
@@ -108,113 +113,70 @@ export default function Navbar() {
               About
             </Link>
             {user && user.role === 'admin' && (
-              <Link to="/admin/elections" className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md font-medium">
+              <Link to="/admin" className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md font-medium">
                 Admin
               </Link>
             )}
           </div>
           
           <div className="hidden md:flex md:items-center md:space-x-4">
-            {account ? (
-              <div className="relative">
-                <button
-                  onClick={toggleProfile}
-                  className="flex items-center space-x-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-md transition-colors duration-200"
-                >
-                  <span className="font-medium">{formatAccount(account)}</span>
-                  <svg className="h-5 w-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-                
-                {isProfileOpen && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 ring-1 ring-black ring-opacity-5">
-                    <div className="px-4 py-2 border-b border-gray-100">
-                      {user && (
+            {user ? (
+              // Only show wallet connection when logged in
+              account ? (
+                <div className="relative">
+                  <button
+                    onClick={toggleProfile}
+                    className="flex items-center space-x-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-md transition-colors duration-200"
+                  >
+                    <span className="font-medium">{formatAccount(account)}</span>
+                    <svg className="h-5 w-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  
+                  {isProfileOpen && (
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 ring-1 ring-black ring-opacity-5">
+                      <div className="px-4 py-2 border-b border-gray-100">
                         <div className="text-sm font-medium text-gray-900">{user.name || user.email}</div>
-                      )}
-                      <div className="text-xs text-gray-500">{getNetworkName(chainId)}</div>
-                    </div>
-                    
-                    <Link to="/profile" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                      Profile
-                    </Link>
-                    
-                    {user && user.role === 'admin' && (
-                      <Link to="/admin/elections" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                        Admin Dashboard
+                        <div className="text-xs text-gray-500">{getNetworkName(chainId)}</div>
+                      </div>
+                      
+                      <Link to="/profile" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                        Profile
                       </Link>
-                    )}
-                    
-                    {user && (
+                      
+                      {user.role === 'admin' && (
+                        <Link to="/admin" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                          Admin Dashboard
+                        </Link>
+                      )}
+                      
                       <button
                         onClick={handleLogout}
                         className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                       >
                         Sign out
                       </button>
-                    )}
-                    
-                    <button
-                      onClick={handleDisconnect}
-                      className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
-                    >
-                      Disconnect Wallet
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <>
-                {user ? (
-                  <div className="flex items-center space-x-4">
-                    <Button onClick={handleConnect} variant="outline">
-                      Connect Wallet
-                    </Button>
-                    <div className="relative">
-                      <button
-                        onClick={toggleProfile}
-                        className="flex items-center space-x-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-md transition-colors duration-200"
-                      >
-                        <span className="font-medium">{user.name || user.email}</span>
-                        <svg className="h-5 w-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </button>
                       
-                      {isProfileOpen && (
-                        <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 ring-1 ring-black ring-opacity-5">
-                          <Link to="/profile" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                            Profile
-                          </Link>
-                          
-                          {user.role === 'admin' && (
-                            <Link to="/admin/elections" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                              Admin Dashboard
-                            </Link>
-                          )}
-                          
-                          <button
-                            onClick={handleLogout}
-                            className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                          >
-                            Sign out
-                          </button>
-                        </div>
-                      )}
+                      <button
+                        onClick={handleDisconnect}
+                        className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
+                      >
+                        Disconnect Wallet
+                      </button>
                     </div>
-                  </div>
-                ) : (
-                  <div className="flex items-center space-x-4">
-                    <Button onClick={handleConnect} variant="outline">
-                      Connect Wallet
-                    </Button>
-                    <Link to="/login">
-                      <Button>Sign In</Button>
-                    </Link>
-                  </div>
-                )}
-              </>
+                  )}
+                </div>
+              ) : (
+                <Button onClick={handleConnect} variant="outline">
+                  Connect Wallet
+                </Button>
+              )
+            ) : (
+              // Show login button when not logged in
+              <Link to="/login">
+                <Button>Sign In</Button>
+              </Link>
             )}
           </div>
           
@@ -253,7 +215,7 @@ export default function Navbar() {
               About
             </Link>
             {user && user.role === 'admin' && (
-              <Link to="/admin/elections" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100">
+              <Link to="/admin" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100">
                 Admin
               </Link>
             )}
@@ -269,7 +231,7 @@ export default function Navbar() {
                   Profile
                 </Link>
                 {user && user.role === 'admin' && (
-                  <Link to="/admin/elections" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100">
+                  <Link to="/admin" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100">
                     Admin Dashboard
                   </Link>
                 )}

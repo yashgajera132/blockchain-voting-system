@@ -16,6 +16,7 @@ import {
   FormLabel,
   FormMessage,
 } from '../components/ui/Form';
+import { toast } from 'react-hot-toast';
 
 export default function Register() {
   const navigate = useNavigate();
@@ -29,6 +30,8 @@ export default function Register() {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [registrationSuccess, setRegistrationSuccess] = useState(false);
 
   // Skip rendering this component if authentication is still being checked
   if (authLoading) {
@@ -43,31 +46,102 @@ export default function Register() {
     }));
   };
 
+  const handleAdminChange = (e) => {
+    const isChecked = e.target.checked;
+    setIsAdmin(isChecked);
+    setFormState(prev => ({
+      ...prev,
+      role: isChecked ? 'admin' : 'voter',
+    }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
 
+    // Client-side validation
     if (formState.password !== formState.confirmPassword) {
       setError('Passwords do not match');
+      setLoading(false);
       return;
     }
 
-    setLoading(true);
+    if (formState.password.length < 6) {
+      setError('Password must be at least 6 characters');
+      setLoading(false);
+      return;
+    }
 
     try {
-      await register({
+      // Display a toast when registration starts
+      toast.loading('Creating your account...', { id: 'registering' });
+
+      console.log('Submitting registration with:', {
+        name: formState.name,
+        email: formState.email,
+        role: formState.role
+      });
+
+      const result = await register({
         name: formState.name,
         email: formState.email,
         password: formState.password,
         role: formState.role,
       });
-      navigate('/verify');
+
+      console.log('Registration successful:', result);
+      toast.success('Account created successfully!', { id: 'registering' });
+      setRegistrationSuccess(true);
+      
+      // Redirect to verification page or login
+      setTimeout(() => {
+        navigate('/verify');
+      }, 1500);
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to register');
+      console.error('Registration error:', err);
+      toast.error(err?.response?.data?.message || 'Registration failed. Please try again.', { id: 'registering' });
+      
+      // Set specific error message based on the error
+      if (err.response?.status === 409) {
+        setError('Email is already in use. Please try another email.');
+      } else if (err.response?.data?.message) {
+        setError(err.response.data.message);
+      } else if (err.message) {
+        setError(err.message);
+      } else {
+        setError('Registration failed. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
   };
+
+  // If registration was successful, show success message
+  if (registrationSuccess) {
+    return (
+      <div className="flex min-h-[80vh] items-center justify-center">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle className="text-green-600">Registration Successful!</CardTitle>
+            <CardDescription>
+              Your account has been created successfully.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <p className="text-center">
+              Redirecting you to the verification page...
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-[80vh] items-center justify-center">
@@ -111,7 +185,7 @@ export default function Register() {
                 onChange={handleChange}
                 required
                 placeholder="Create a password"
-                minLength={8}
+                minLength={6}
               />
             </FormField>
             <FormField>
@@ -123,28 +197,22 @@ export default function Register() {
                 onChange={handleChange}
                 required
                 placeholder="Confirm your password"
-                minLength={8}
+                minLength={6}
               />
             </FormField>
-            <div className="space-y-2">
-              <label htmlFor="role" className="block text-sm font-medium text-gray-700">
-                Account Type
+            <div className="flex items-center space-x-2 mt-4">
+              <input
+                type="checkbox"
+                id="isAdmin"
+                checked={isAdmin}
+                onChange={handleAdminChange}
+                className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+              />
+              <label htmlFor="isAdmin" className="text-sm text-gray-700">
+                Register as Administrator
               </label>
-              <select
-                id="role"
-                name="role"
-                value={formState.role}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-              >
-                <option value="voter">Voter</option>
-                <option value="admin" disabled>Admin (Requires Approval)</option>
-              </select>
-              <p className="text-xs text-gray-500">
-                Admin access requires approval from existing administrators.
-              </p>
             </div>
-            {error && <FormMessage>{error}</FormMessage>}
+            {error && <FormMessage className="text-red-500">{error}</FormMessage>}
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
             <Button

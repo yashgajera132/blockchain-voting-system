@@ -8,7 +8,7 @@ import { Input } from '../components/ui/Input';
 export default function Profile() {
   const navigate = useNavigate();
   const { user, updateProfile, logout, getVerificationStatus, isServerAvailable } = useAuth();
-  const { active, account } = useWeb3();
+  const { isActive, account, connect, chainId, contract } = useWeb3();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -17,6 +17,9 @@ export default function Profile() {
   const [verificationStatus, setVerificationStatus] = useState(null);
   const [activeTab, setActiveTab] = useState('profile');
   const [userVotes, setUserVotes] = useState([]);
+  const [connectingWallet, setConnectingWallet] = useState(false);
+  const [apiError, setApiError] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     // Check for user authentication
@@ -28,7 +31,19 @@ export default function Profile() {
     if (user && isServerAvailable) {
       fetchUserVotes();
     }
-  }, [user, isServerAvailable, navigate]);
+
+    // Attempt to connect to MetaMask silently
+    if (!isActive) {
+      connect(true); // true = silent mode (no toasts for errors)
+    }
+  }, [user, isServerAvailable, navigate, isActive, connect]);
+
+  // Refresh data when wallet connection status changes
+  useEffect(() => {
+    if (user && isActive) {
+      fetchUserVotes();
+    }
+  }, [isActive, user]);
 
   useEffect(() => {
     // Initialize data from user context
@@ -45,29 +60,44 @@ export default function Profile() {
     try {
       const status = await getVerificationStatus();
       setVerificationStatus(status);
+      return status;
     } catch (err) {
       console.error('Error fetching verification status:', err);
+      // Set a default status object to prevent UI errors
+      setVerificationStatus({ status: 'not_submitted' });
+      setApiError('Failed to fetch verification status');
+      return null;
     }
   };
 
   const fetchUserVotes = async () => {
     try {
-      // For now, we'll just set an empty array since the API endpoint
-      // for fetching user votes is not yet implemented
-      setUserVotes([]);
-      console.log('User votes fetch would happen here');
-      // When the API is ready, uncomment and modify this code:
-      // const response = await fetch('/api/voter/user-votes', {
-      //   headers: {
-      //     'Authorization': `Bearer ${localStorage.getItem('token')}`
-      //   }
-      // });
-      // const data = await response.json();
-      // if (response.ok) {
-      //   setUserVotes(data.votes);
-      // }
+      if (!user?.id) return null;
+      
+      // Fix the API endpoint path
+      const response = await fetch('/api/voters/votes', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setUserVotes(data.votes || []);
+        return data.votes;
+      } else {
+        // Handle error response but don't crash
+        const errorText = await response.text();
+        console.error('Error fetching user votes:', errorText);
+        setUserVotes([]);
+        setApiError(`Failed to fetch votes: ${response.status}`);
+        return null;
+      }
     } catch (err) {
       console.error('Error fetching user votes:', err);
+      setUserVotes([]);
+      setApiError('Network error while fetching votes');
+      return null;
     }
   };
 
@@ -115,6 +145,54 @@ export default function Profile() {
   // Get a truncated version of the user ID for display purposes
   const truncatedId = user?.id ? `${user.id.substring(0, 8)}...` : '';
 
+  // Add a controlled connect wallet function
+  const handleConnectWallet = async () => {
+    setConnectingWallet(true);
+    try {
+      await connect(false);
+    } catch (error) {
+      console.error('Error connecting wallet:', error);
+    } finally {
+      setConnectingWallet(false);
+    }
+  };
+
+  // Get network name based on chain ID
+  const getNetworkName = (id) => {
+    if (!id) return 'Unknown';
+    
+    switch(Number(id)) {
+      case 1: return 'Ethereum';
+      case 5: return 'Goerli';
+      case 11155111: return 'Sepolia';
+      case 1337: return 'Local';
+      default: return `Chain ID: ${id}`;
+    }
+  };
+
+  // Function to handle manual refresh of all data
+  const refreshAllData = async () => {
+    setRefreshing(true);
+    setApiError(null);
+    
+    try {
+      await Promise.all([
+        fetchVerificationStatus(),
+        fetchUserVotes()
+      ]);
+      
+      // Attempt to connect wallet silently if not connected
+      if (!isActive) {
+        connect(true);
+      }
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+      setApiError('Failed to refresh data. Please try again.');
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-lg mx-auto">
@@ -150,7 +228,7 @@ export default function Profile() {
             <div className="bg-blue-50 p-3 rounded-lg text-center">
               <p className="text-sm text-gray-500">Wallet Status</p>
               <p className="font-semibold text-blue-700">
-                {active ? 'Connected' : 'Disconnected'}
+                {isActive ? 'Connected' : 'Disconnected'}
               </p>
             </div>
             <div className="bg-blue-50 p-3 rounded-lg text-center">
@@ -225,38 +303,31 @@ export default function Profile() {
         <div className="grid grid-cols-1 gap-6">
           <div className="bg-white rounded-lg shadow-md border border-gray-100 p-6">
             <h2 className="text-xl font-semibold mb-4">Wallet Connection</h2>
-            <div className="flex items-start space-x-3">
-              <div className="flex-shrink-0 mt-1">
-                {active ? (
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                ) : (
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            {isActive && account ? (
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <span className="text-green-600 font-medium">Connected</span>
+                  <span className="text-gray-600">{account.substring(0, 6)}...{account.substring(account.length - 4)}</span>
+                </div>
+                <div className="text-sm text-gray-500">
+                  Network: {getNetworkName(chainId)}
+                </div>
+              </div>
+            ) : (
+              <div>
+                <div className="flex items-center mb-2">
+                  <svg className="w-5 h-5 text-gray-400 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                   </svg>
-                )}
-              </div>
-              <div className="flex-1">
-                <p className="font-medium">
-                  {active ? 'Connected' : 'Not Connected'}
-                </p>
-                {active && account && (
-                  <p className="text-xs text-gray-600 mt-1 font-mono bg-gray-100 p-2 rounded overflow-hidden text-ellipsis">
-                    {account}
-                  </p>
-                )}
-                {!active && (
-                  <p className="text-sm text-gray-600 mt-1">
-                    Connect your wallet to participate in blockchain voting.
-                  </p>
-                )}
-              </div>
-            </div>
-            {!active && (
-              <div className="mt-4">
-                <Button className="w-full" onClick={() => window.location.reload()}>
-                  Connect Wallet
+                  <span className="text-gray-600">Not Connected</span>
+                </div>
+                <p className="text-sm text-gray-500 mb-4">Connect your wallet to participate in blockchain voting.</p>
+                <Button
+                  onClick={handleConnectWallet}
+                  disabled={connectingWallet}
+                  className="w-full"
+                >
+                  {connectingWallet ? 'Connecting...' : 'Connect Wallet'}
                 </Button>
               </div>
             )}
@@ -308,6 +379,26 @@ export default function Profile() {
             )}
           </div>
         </div>
+
+        {apiError && (
+          <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-md">
+            <div className="flex items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-500 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+              <p className="text-sm text-red-700">{apiError}</p>
+            </div>
+            <Button 
+              variant="outline"
+              size="sm"
+              className="mt-2 w-full"
+              onClick={refreshAllData}
+              disabled={refreshing}
+            >
+              {refreshing ? 'Refreshing...' : 'Refresh Data'}
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );

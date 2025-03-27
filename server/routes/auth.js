@@ -1,11 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const { register, login, getMe, updateProfile } = require('../controllers/authController');
+const { register, login, getMe, updateProfile, checkUserExists } = require('../controllers/authController');
 const { protect } = require('../middleware/authMiddleware');
 
 // Public routes
 router.post('/register', register);
 router.post('/login', login);
+router.post('/check-user', checkUserExists);
 
 // Health check endpoint for client to detect server availability
 router.get('/health', (req, res) => {

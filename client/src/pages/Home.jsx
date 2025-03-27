@@ -28,6 +28,138 @@ export default function Home() {
     { id: 4, icon: '📱', title: 'Accessible', description: 'Vote from anywhere, on any device, making participation easier and increasing voter turnout.' }
   ];
 
+  // Add a Getting Started section for the presentation
+  const renderPresentationGuide = () => {
+    return (
+      <section className="py-12 bg-white">
+        <div className="max-w-5xl mx-auto px-4">
+          <h2 className="text-3xl font-bold text-center mb-8">Presentation Guide</h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="bg-blue-50 p-6 rounded-lg">
+              <div className="bg-blue-500 text-white w-12 h-12 flex items-center justify-center rounded-full mb-4 font-bold text-xl">1</div>
+              <h3 className="text-xl font-bold mb-2">Register & Login</h3>
+              <p className="text-gray-700 mb-4">Create an account as a voter or administrator to access the platform.</p>
+              <ul className="space-y-2 text-sm">
+                <li className="flex items-start">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-500 mr-2 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Register with email
+                </li>
+                <li className="flex items-start">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-500 mr-2 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Select user role
+                </li>
+                <li className="flex items-start">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-500 mr-2 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Login using credentials
+                </li>
+              </ul>
+            </div>
+            
+            <div className="bg-green-50 p-6 rounded-lg">
+              <div className="bg-green-500 text-white w-12 h-12 flex items-center justify-center rounded-full mb-4 font-bold text-xl">2</div>
+              <h3 className="text-xl font-bold mb-2">Admin Setup</h3>
+              <p className="text-gray-700 mb-4">Administrators can create and manage elections on the blockchain.</p>
+              <ul className="space-y-2 text-sm">
+                <li className="flex items-start">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500 mr-2 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Create new elections
+                </li>
+                <li className="flex items-start">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500 mr-2 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Add candidates
+                </li>
+                <li className="flex items-start">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500 mr-2 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Verify voter eligibility
+                </li>
+              </ul>
+            </div>
+            
+            <div className="bg-purple-50 p-6 rounded-lg">
+              <div className="bg-purple-500 text-white w-12 h-12 flex items-center justify-center rounded-full mb-4 font-bold text-xl">3</div>
+              <h3 className="text-xl font-bold mb-2">Voting Process</h3>
+              <p className="text-gray-700 mb-4">Participate in secure, transparent blockchain voting.</p>
+              <ul className="space-y-2 text-sm">
+                <li className="flex items-start">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-purple-500 mr-2 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Connect wallet
+                </li>
+                <li className="flex items-start">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-purple-500 mr-2 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Cast your vote
+                </li>
+                <li className="flex items-start">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-purple-500 mr-2 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  View election results
+                </li>
+              </ul>
+            </div>
+          </div>
+          
+          <div className="mt-12 p-6 bg-gray-50 rounded-lg">
+            <h3 className="text-xl font-bold mb-4">Presentation Quick Start</h3>
+            <ol className="space-y-4">
+              <li className="flex items-start">
+                <div className="bg-blue-600 text-white w-8 h-8 flex items-center justify-center rounded-full mr-3 flex-shrink-0">1</div>
+                <div>
+                  <p className="font-medium">Register an admin account</p>
+                  <p className="text-gray-600 mt-1">Click "Sign Up" and check the "Register as Administrator" checkbox.</p>
+                </div>
+              </li>
+              <li className="flex items-start">
+                <div className="bg-blue-600 text-white w-8 h-8 flex items-center justify-center rounded-full mr-3 flex-shrink-0">2</div>
+                <div>
+                  <p className="font-medium">Create a sample election</p>
+                  <p className="text-gray-600 mt-1">Go to Admin dashboard and click "Create New Election" button.</p>
+                </div>
+              </li>
+              <li className="flex items-start">
+                <div className="bg-blue-600 text-white w-8 h-8 flex items-center justify-center rounded-full mr-3 flex-shrink-0">3</div>
+                <div>
+                  <p className="font-medium">Register a voter account</p>
+                  <p className="text-gray-600 mt-1">Open a new browser or incognito window and register a voter account.</p>
+                </div>
+              </li>
+              <li className="flex items-start">
+                <div className="bg-blue-600 text-white w-8 h-8 flex items-center justify-center rounded-full mr-3 flex-shrink-0">4</div>
+                <div>
+                  <p className="font-medium">Cast a vote in the election</p>
+                  <p className="text-gray-600 mt-1">Access the Elections page, select a candidate, and submit your vote.</p>
+                </div>
+              </li>
+              <li className="flex items-start">
+                <div className="bg-blue-600 text-white w-8 h-8 flex items-center justify-center rounded-full mr-3 flex-shrink-0">5</div>
+                <div>
+                  <p className="font-medium">View results</p>
+                  <p className="text-gray-600 mt-1">As admin, check the election results in the admin dashboard.</p>
+                </div>
+              </li>
+            </ol>
+          </div>
+        </div>
+      </section>
+    );
+  };
+
   return (
     <div className="flex flex-col min-h-screen">
       {/* Modern Hero Section with faster animations */}
@@ -424,6 +556,9 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* Add Presentation Guide */}
+      {renderPresentationGuide()}
     </div>
   );
 } 

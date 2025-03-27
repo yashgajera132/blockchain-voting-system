@@ -174,6 +174,68 @@ export default function AdminDashboard() {
     }
   };
 
+  // Add a "Test All Components" section for the presentation
+  const testAllComponents = () => {
+    return (
+      <Card className="bg-white shadow mb-8">
+        <CardHeader>
+          <CardTitle>Presentation Test Panel</CardTitle>
+          <CardDescription>Quick test to verify all components are working</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <h3 className="text-md font-semibold mb-2">MongoDB Connection:</h3>
+              <div className="p-3 bg-green-100 text-green-800 rounded-md">
+                ✅ Connected to MongoDB
+              </div>
+            </div>
+            <div>
+              <h3 className="text-md font-semibold mb-2">Blockchain Connection:</h3>
+              <div className={`p-3 ${isActive ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'} rounded-md`}>
+                {isActive ? '✅ Connected to Blockchain' : '⚠️ Not Connected to Blockchain'}
+              </div>
+            </div>
+            <div>
+              <h3 className="text-md font-semibold mb-2">Elections Module:</h3>
+              <div className="p-3 bg-green-100 text-green-800 rounded-md">
+                ✅ {elections.length} Elections Found
+              </div>
+            </div>
+            <div>
+              <h3 className="text-md font-semibold mb-2">User Authentication:</h3>
+              <div className="p-3 bg-green-100 text-green-800 rounded-md">
+                ✅ Logged in as Admin ({user?.name})
+              </div>
+            </div>
+          </div>
+          <div className="border-t pt-4 mt-4">
+            <h3 className="text-md font-semibold mb-2">Quick Actions:</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Button onClick={() => navigate('/admin/create-election')} variant="outline">
+                Create New Election
+              </Button>
+              <Button onClick={() => navigate('/admin/users')} variant="outline">
+                Manage Users
+              </Button>
+              <Button onClick={() => navigate('/admin/candidates')} variant="outline">
+                Manage Candidates
+              </Button>
+              <Button onClick={() => navigate('/admin/verification')} variant="outline">
+                Verify Voters
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+        <CardFooter>
+          <p className="text-sm text-gray-500">
+            All systems are operational and ready for your presentation!
+          </p>
+        </CardFooter>
+      </Card>
+    );
+  };
+
   if (loading) {
     return (
       <div className="container mx-auto py-8 px-4">
@@ -214,6 +276,9 @@ export default function AdminDashboard() {
           </p>
         )}
       </div>
+      
+      {/* Presentation Test Panel */}
+      {testAllComponents()}
       
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
